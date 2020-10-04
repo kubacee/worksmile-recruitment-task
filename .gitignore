@@ -1,0 +1,4 @@
+node_modules
+static/build
+yarn-error.log
+.idea
