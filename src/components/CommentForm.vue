@@ -35,6 +35,7 @@
   import CommentAvatar from "./UserAvatar.vue";
   import UsersList from "./UsersList.vue";
   import UserItem from "./UserItem.vue";
+
   export default {
     name: "CommentForm",
     components: {UserItem, UsersList, CommentAvatar},
@@ -71,7 +72,7 @@
     ],
     data() {
       return {
-        lastSign: null,
+        startSelection: null,
         mentionSearchValue: null,
         selectedUserIndex: 0,
       }
@@ -97,45 +98,68 @@
         this.$emit('submit-form');
       },
 
+      /**
+       * @param {InputEvent} event
+       */
       checkMentionSign(event) {
         const sign = event.data;
+        const startSelection = event.target.selectionStart;
         this.selectedUserIndex = 0;
 
-        const stopWatchingMention = () => sign === ' ';
+        const updateMentionValue = () => {
+          this.mentionSearchValue = '';
+
+          for (let index = this.startSelection; index < this.comment.length; index++) {
+            const value = this.comment[index];
+            if (!value || ' ' === value) {
+              break;
+            }
+            this.mentionSearchValue += value;
+          }
+        };
         const emitSearchUserEvent = () => this.$emit('search-users', this.mentionSearchValue);
-        const updateMentionString = () => this.lastSign === this.mentionKey && sign !== this.mentionKey;
-        const removeLastCharacterFromMentionString = () => sign === null && this.mentionSearchValue;
 
-        if (removeLastCharacterFromMentionString()) {
-          this.mentionSearchValue = this.mentionSearchValue.slice(0, -1);
+        if (startSelection > 0 && this.comment[startSelection - 1] === this.mentionKey) {
+          this.startSelection = startSelection;
+          updateMentionValue();
           emitSearchUserEvent();
           return;
         }
 
-        if (stopWatchingMention()) {
+        if (startSelection <= this.startSelection) {
           this.resetMention();
-          emitSearchUserEvent();
+          this.closeUserList();
           return;
         }
 
-        if (updateMentionString()) {
-          this.mentionSearchValue = this.mentionSearchValue === null
-            ? sign
-            : this.mentionSearchValue + sign
-          ;
-          emitSearchUserEvent();
+        if (sign === this.mentionKey) {
+          this.startSelection = startSelection;
           return;
         }
 
-        this.lastSign = sign;
-        this.mentionSearchValue = null;
+        if (sign === ' ') {
+          this.resetMention();
+          this.closeUserList();
+          return
+        }
+
+        if (this.startSelection) {
+          updateMentionValue();
+          emitSearchUserEvent();
+        }
       },
 
+      /**
+       * @param {Event} event
+       */
       cancelKeyEvent(event) {
         event.preventDefault();
         event.stopPropagation();
       },
 
+      /**
+       * @param {Event} event
+       */
       onKeyDown (event) {
         const isArrowDownKey = event.key === 'ArrowDown' || event.keyCode === 40;
         const isArrowUpKey = event.key === 'ArrowUp' || event.keyCode === 38;
@@ -177,6 +201,9 @@
         this.$emit('clear-users');
       },
 
+      /**
+       * @param {number} userIndex
+       */
       replaceSelectedMention(userIndex) {
         const user = this.usersList[userIndex];
         const searchValue = '@' + this.mentionSearchValue;
@@ -189,8 +216,8 @@
       },
 
       resetMention() {
-        this.lastSign = null;
-        this.mentionSearchValue = null;
+        this.mentionSearchValue = '';
+        this.startSelection = null;
       },
 
       registerEvents() {
